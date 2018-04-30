@@ -32,6 +32,8 @@ namespace BouncingBall
         /// </summary>
         public float Drag { get; set; } = 0.01f;
 
+        public float Restitution { get; set; } = -1f;
+
         public void SetVelocityX(float value)
         {
             Velocity = new Vector2(value, Velocity.Y);

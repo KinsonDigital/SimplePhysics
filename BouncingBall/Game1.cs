@@ -170,12 +170,12 @@ namespace BouncingBall
         {
             if (_ball.Location.X > _screenWidth - _ball.Radius)
             {
-                _ball.SetVelocityX(_ball.Velocity.X * -1);
+                _ball.SetVelocityX(_ball.Velocity.X * _ball.Restitution);
                 _ball.SetLocationX(_screenWidth - _ball.Radius);
             }
             else if(_ball.Location.X < _ball.Radius)
             {
-                _ball.SetVelocityX(_ball.Velocity.X * -1);
+                _ball.SetVelocityX(_ball.Velocity.X * _ball.Restitution);
                 _ball.SetLocationX(_ball.Radius);
             }
 
@@ -185,14 +185,14 @@ namespace BouncingBall
             //Check if touching bottom of screen
             if (_ball.Location.Y > _screenHeight - _ball.Radius)
             {
-                _ball.SetVelocityY(_ball.Velocity.Y * -1f);
+                _ball.SetVelocityY(_ball.Velocity.Y * _ball.Restitution);
                 _ball.SetLocationY(_screenHeight - _ball.Radius);
             }
 
             //Check if touching top of screen
             if (_ball.Location.Y < _ball.Radius)
             {
-                _ball.SetVelocityY(_ball.Velocity.Y * -1f);
+                _ball.SetVelocityY(_ball.Velocity.Y * _ball.Restitution);
                 _ball.SetLocationY(_ball.Radius);
             }
         }
