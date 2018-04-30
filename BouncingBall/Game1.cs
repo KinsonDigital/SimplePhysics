@@ -1,6 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using System.Diagnostics;
 
 namespace BouncingBall
 {
@@ -20,6 +21,8 @@ namespace BouncingBall
         private int _screenHeight = 480;
         private bool _isInWater = false;
         private PhysObj _ball;
+        private Stopwatch _timer = new Stopwatch();
+        private bool _timerFinished = false;
 
         /*Calculations:
          * Legend:
@@ -69,13 +72,13 @@ namespace BouncingBall
                 Acceleration = new Vector2(0, 0),
                 Mass = 2.00f,
                 Radius = 50f,
-                Friction = 0.01f,
+                Friction = 0.05f,
                 Drag = 0.01f,//Must be a positive number. If 0, then object does not move
                 SurfaceArea = 1f
             };
 
             _gravity = new Vector2(0.0f, 0.1f);
-            _wind = new Vector2(-0.01f, 0);
+            _wind = new Vector2(0.0f, 0);
 
             base.Initialize();
         }
@@ -105,6 +108,12 @@ namespace BouncingBall
         /// <param name="gameTime">Provides a snapshot of timing values.</param>
         protected override void Update(GameTime gameTime)
         {
+            if (!_timer.IsRunning && _timerFinished == false)
+                _timer.Start();
+
+            //Update time passed
+            Window.Title = $"Touch Bottom Time: {_timer.Elapsed.TotalSeconds}";
+
             //Calculate the friction vector
             var friction = Vector2.Normalize(_ball.Velocity);
             friction *= -1;
@@ -187,6 +196,12 @@ namespace BouncingBall
             {
                 _ball.SetVelocityY(_ball.Velocity.Y * _ball.Restitution);
                 _ball.SetLocationY(_screenHeight - _ball.Radius);
+
+                if (_timer.IsRunning && _timerFinished == false)
+                {
+                    _timer.Stop();
+                    _timerFinished = true;
+                }
             }
 
             //Check if touching top of screen
