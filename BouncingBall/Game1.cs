@@ -107,7 +107,7 @@ namespace BouncingBall
         {
             //Calculate the friction vector
             var friction = Vector2.Normalize(_ball.Velocity);
-            friction = friction * -1;
+            friction *= -1;
 
             //If the friction components are NaN, set to 0
             friction = friction.RemoveAnyNaN();
