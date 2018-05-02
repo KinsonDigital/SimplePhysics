@@ -12,6 +12,8 @@ namespace BouncingBall
     {
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
+        private KeyboardState _currentKeyState;
+        private KeyboardState _prevKeyState;
         private Vector2 _gravity;//The gravity in the world
         private Vector2 _wind;//The wind forces in the world
         private Rectangle _waterArea;
@@ -108,6 +110,45 @@ namespace BouncingBall
         /// <param name="gameTime">Provides a snapshot of timing values.</param>
         protected override void Update(GameTime gameTime)
         {
+            _currentKeyState = Keyboard.GetState();
+
+            //Apply an impulse to move the object to the right
+            if(_currentKeyState.IsKeyDown(Keys.Right) && _prevKeyState.IsKeyUp(Keys.Right))
+            {
+                var impulse = new Vector2(1, 0);
+
+                _ball.Velocity += Util.CalcInverseOfMass(_ball.Mass) * impulse;
+            }
+
+            UpdatePhysics();
+            CheckEdges();
+
+            _prevKeyState = _currentKeyState;
+            base.Update(gameTime);
+        }
+
+        /// <summary>
+        /// This is called when the game should draw itself.
+        /// </summary>
+        /// <param name="gameTime">Provides a snapshot of timing values.</param>
+        protected override void Draw(GameTime gameTime)
+        {
+            GraphicsDevice.Clear(Color.CornflowerBlue);
+
+            _spriteBatch.Begin();
+
+            _ball.Render(_spriteBatch);
+
+            //Render the water
+            _spriteBatch.FillRectangle(_waterArea, new Color(0, 0, 255, 80));
+
+            _spriteBatch.End();
+
+            base.Draw(gameTime);
+        }
+
+        private void UpdatePhysics()
+        {
             if (!_timer.IsRunning && _timerFinished == false)
                 _timer.Start();
 
@@ -149,30 +190,6 @@ namespace BouncingBall
             //Reset the acceleration.  If you do not do this, every frame the acceleration
             //will increase.  This only is needed in the current moment in time
             _ball.Acceleration *= 0;
-
-            CheckEdges();
-
-            base.Update(gameTime);
-        }
-
-        /// <summary>
-        /// This is called when the game should draw itself.
-        /// </summary>
-        /// <param name="gameTime">Provides a snapshot of timing values.</param>
-        protected override void Draw(GameTime gameTime)
-        {
-            GraphicsDevice.Clear(Color.CornflowerBlue);
-
-            _spriteBatch.Begin();
-
-            _ball.Render(_spriteBatch);
-
-            //Render the water
-            _spriteBatch.FillRectangle(_waterArea, new Color(0, 0, 255, 80));
-
-            _spriteBatch.End();
-
-            base.Draw(gameTime);
         }
 
         private void CheckEdges()
