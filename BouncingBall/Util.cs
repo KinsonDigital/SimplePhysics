@@ -13,5 +13,21 @@ namespace BouncingBall
         {
             return 1.0f / mass;
         }
+
+        public static Vector2 RemoveNan(Vector2 value)
+        {
+            value.X = float.IsNaN(value.X) ? 0f : value.X;
+            value.Y = float.IsNaN(value.Y) ? 0f : value.Y;
+
+            return value;
+        }
+
+        public static Vector2 RemoveInfinity(Vector2 value)
+        {
+            value.X = float.IsInfinity(value.X) ? 0f : value.X;
+            value.Y = float.IsInfinity(value.Y) ? 0f : value.Y;
+
+            return value;
+        }
     }
 }

@@ -57,6 +57,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Content\Graphics\WhiteBox.png" />
+    <Content Include="Content\Graphics\WhiteRect.png" />
     <Content Include="Icon.ico" />
   </ItemGroup>
   <ItemGroup>

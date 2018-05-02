@@ -22,7 +22,7 @@ namespace BouncingBall
         private int _screenWidth = 800;
         private int _screenHeight = 480;
         private bool _isInWater = false;
-        private PhysObj _ball;
+        private PhysObj _box;
         private Stopwatch _timer = new Stopwatch();
         private bool _timerFinished = false;
 
@@ -67,18 +67,6 @@ namespace BouncingBall
         /// </summary>
         protected override void Initialize()
         {
-            _ball = new PhysObj()
-            {
-                Location = new Vector2(_graphics.PreferredBackBufferWidth / 2, _graphics.PreferredBackBufferHeight / 3),
-                Velocity = new Vector2(0, 0),
-                Acceleration = new Vector2(0, 0),
-                Mass = 2.00f,
-                Radius = 50f,
-                Friction = 0.05f,
-                Drag = 0.01f,//Must be a positive number. If 0, then object does not move
-                SurfaceArea = 1f
-            };
-
             _gravity = new Vector2(0.0f, 0.1f);
             _wind = new Vector2(0.0f, 0);
 
@@ -93,6 +81,18 @@ namespace BouncingBall
         {
             // Create a new SpriteBatch, which can be used to draw textures.
             _spriteBatch = new SpriteBatch(GraphicsDevice);
+
+            _box = new PhysObj(Content.Load<Texture2D>(@"Graphics\WhiteBox"))
+            {
+                Location = new Vector2(_graphics.PreferredBackBufferWidth / 2, _graphics.PreferredBackBufferHeight / 3),
+                Velocity = new Vector2(0, 0),
+                Acceleration = new Vector2(0, 0),
+                Mass = 1f,
+                HalfHeight = 25f,
+                Friction = 0.05f,
+                Drag = 0.01f,//Must be a positive number. If 0, then object does not move
+                SurfaceArea = 1f
+            };
         }
 
         /// <summary>
@@ -112,15 +112,23 @@ namespace BouncingBall
         {
             _currentKeyState = Keyboard.GetState();
 
+            UpdatePhysics();
+
             //Apply an impulse to move the object to the right
             if(_currentKeyState.IsKeyDown(Keys.Right) && _prevKeyState.IsKeyUp(Keys.Right))
             {
                 var impulse = new Vector2(1, 0);
 
-                _ball.Velocity += Util.CalcInverseOfMass(_ball.Mass) * impulse;
+                _box.Velocity += Util.CalcInverseOfMass(_box.Mass) * impulse;
+                _box.Velocity = Util.RemoveNan(_box.Velocity);
+                _box.Velocity = Util.RemoveInfinity(_box.Velocity);
             }
 
-            UpdatePhysics();
+            if (_currentKeyState.IsKeyDown(Keys.Left))
+            {
+                _box.Angle -= 0.01f;
+            }
+
             CheckEdges();
 
             _prevKeyState = _currentKeyState;
@@ -137,7 +145,7 @@ namespace BouncingBall
 
             _spriteBatch.Begin();
 
-            _ball.Render(_spriteBatch);
+            _box.Render(_spriteBatch);
 
             //Render the water
             _spriteBatch.FillRectangle(_waterArea, new Color(0, 0, 255, 80));
@@ -156,63 +164,63 @@ namespace BouncingBall
             Window.Title = $"Touch Bottom Time: {_timer.Elapsed.TotalSeconds}";
 
             //Calculate the friction vector
-            var friction = Vector2.Normalize(_ball.Velocity);
+            var friction = Vector2.Normalize(_box.Velocity);
             friction *= -1;
 
             //If the friction components are NaN, set to 0
             friction = friction.RemoveAnyNaN();
 
-            friction *= _ball.Friction;
+            friction *= _box.Friction;
 
             var density = _isInWater ? _densityOfWater : _densityOfAir;
 
-            var velocityUnitVector = Vector2.Normalize(_ball.Velocity);
+            var velocityUnitVector = Vector2.Normalize(_box.Velocity);
 
             velocityUnitVector = velocityUnitVector.RemoveAnyNaN();
 
-            float speed = _ball.Velocity.Length();
-            var dragForce = _ball.Velocity;
+            float speed = _box.Velocity.Length();
+            var dragForce = _box.Velocity;
 
-            dragForce = -0.5f * density * (_ball.Velocity.Length() * _ball.Velocity.Length()) * _ball.SurfaceArea * _ball.Drag * velocityUnitVector;
+            dragForce = -0.5f * density * (_box.Velocity.Length() * _box.Velocity.Length()) * _box.SurfaceArea * _box.Drag * velocityUnitVector;
 
             //Apply all of the forces
-            ApplyForce(_ball, dragForce);
-            ApplyForce(_ball, friction);
-            ApplyForce(_ball, _gravity);
-            ApplyForce(_ball, _wind);
+            ApplyForce(_box, dragForce);
+            ApplyForce(_box, friction);
+            ApplyForce(_box, _gravity);
+            ApplyForce(_box, _wind);
 
             //Apply the acceleration to the velocity
-            _ball.Velocity += _ball.Acceleration;
+            _box.Velocity += _box.Acceleration;
 
             //Update the location based on the velocity
-            _ball.Location += _ball.Velocity;
+            _box.Location += _box.Velocity;
 
             //Reset the acceleration.  If you do not do this, every frame the acceleration
             //will increase.  This only is needed in the current moment in time
-            _ball.Acceleration *= 0;
+            _box.Acceleration *= 0;
         }
 
         private void CheckEdges()
         {
-            if (_ball.Location.X > _screenWidth - _ball.Radius)
+            if (_box.Location.X > _screenWidth - _box.HalfHeight)
             {
-                _ball.SetVelocityX(_ball.Velocity.X * _ball.Restitution);
-                _ball.SetLocationX(_screenWidth - _ball.Radius);
+                _box.SetVelocityX(_box.Velocity.X * _box.Restitution);
+                _box.SetLocationX(_screenWidth - _box.HalfHeight);
             }
-            else if(_ball.Location.X < _ball.Radius)
+            else if(_box.Location.X < _box.HalfHeight)
             {
-                _ball.SetVelocityX(_ball.Velocity.X * _ball.Restitution);
-                _ball.SetLocationX(_ball.Radius);
+                _box.SetVelocityX(_box.Velocity.X * _box.Restitution);
+                _box.SetLocationX(_box.HalfHeight);
             }
 
             //If the object is in the water
-            _isInWater = _waterArea.Contains(new Point((int)_ball.Location.X, (int)(_ball.Location.Y + _ball.Radius)));
+            _isInWater = _waterArea.Contains(new Point((int)_box.Location.X, (int)(_box.Location.Y + _box.HalfHeight)));
 
             //Check if touching bottom of screen
-            if (_ball.Location.Y > _screenHeight - _ball.Radius)
+            if (_box.Location.Y > _screenHeight - _box.HalfHeight)
             {
-                _ball.SetVelocityY(_ball.Velocity.Y * _ball.Restitution);
-                _ball.SetLocationY(_screenHeight - _ball.Radius);
+                _box.SetVelocityY(_box.Velocity.Y * _box.Restitution);
+                _box.SetLocationY(_screenHeight - _box.HalfHeight);
 
                 if (_timer.IsRunning && _timerFinished == false)
                 {
@@ -222,10 +230,10 @@ namespace BouncingBall
             }
 
             //Check if touching top of screen
-            if (_ball.Location.Y < _ball.Radius)
+            if (_box.Location.Y < _box.HalfHeight)
             {
-                _ball.SetVelocityY(_ball.Velocity.Y * _ball.Restitution);
-                _ball.SetLocationY(_ball.Radius);
+                _box.SetVelocityY(_box.Velocity.Y * _box.Restitution);
+                _box.SetLocationY(_box.HalfHeight);
             }
         }
 
