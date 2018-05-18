@@ -16,6 +16,7 @@ namespace BouncingBall
         private KeyboardState _prevKeyState;
         private Vector2 _gravity;//The gravity in the world
         private Vector2 _wind;//The wind forces in the world
+        private Vector2 _movementForce = Vector2.Zero;//The force of movement to control and object
         private Rectangle _waterArea;
         private float _densityOfWater = 100f;
         private float _densityOfAir = 0.0f;
@@ -68,7 +69,7 @@ namespace BouncingBall
         protected override void Initialize()
         {
             IsMouseVisible = true;
-            _gravity = new Vector2(0.0f, 9.8f);
+            _gravity = new Vector2(0.0f, 4.0f);
             _wind = new Vector2(0.0f, 0);
 
             base.Initialize();
@@ -128,7 +129,9 @@ namespace BouncingBall
 
             UpdatePhysics();
 
-            ProcessKeys();
+            //ProcessMovementKeys();
+
+            ProcessImpulseKey((float)gameTime.ElapsedGameTime.TotalSeconds);
 
             CheckEdges();
 
@@ -158,29 +161,58 @@ namespace BouncingBall
         }
 
 
-        private void ProcessKeys()
+        private void ProcessMovementKeys()
         {
-            //Apply an impulse to move the object to the right
-            if (_currentKeyState.IsKeyDown(Keys.Left) && _prevKeyState.IsKeyUp(Keys.Left))
+            if (_currentKeyState.IsKeyDown(Keys.Left))
             {
-                _box.Velocity += Util.ApplyImpulse(new Vector2(-4, 0), _box.Location, _box.Mass);
+                _movementForce.X = MathHelper.Clamp(_movementForce.X - 5f, -1f, 0f);
+                return;
+            }
+            else
+            {
+                _movementForce.X = 0;
             }
 
-            if (_currentKeyState.IsKeyDown(Keys.Right) && _prevKeyState.IsKeyUp(Keys.Right))
+            if (_currentKeyState.IsKeyDown(Keys.Right))
             {
-                var newVelocityFar = Util.ApplyImpulse(new Vector2(4f, 0), new Vector2(_box.Location.X - 3000, _box.Location.Y), _box.Mass);
-                var newVelocityClose = Util.ApplyImpulse(new Vector2(4f, 0), _box.Location, _box.Mass);
-                //_box.Velocity += Util.ApplyImpulse(new Vector2(4f, 0), _box.Location, _box.Mass);
+                _movementForce.X = MathHelper.Clamp(_movementForce.X + 5f, 0f, 1f);
+                return;
+            }
+            else
+            {
+                _movementForce.X = 0;
             }
 
-            if (_currentKeyState.IsKeyDown(Keys.Up) && _prevKeyState.IsKeyUp(Keys.Up))
+            if (_currentKeyState.IsKeyDown(Keys.Up))
             {
-                _box.Velocity += Util.ApplyImpulse(new Vector2(0, -4), _box.Location, _box.Mass);
+                _movementForce.Y = MathHelper.Clamp(_movementForce.Y - 5f, -4.5f, 0f);
+                return;
+            }
+            else
+            {
+                _movementForce.Y = 0;
             }
 
-            if (_currentKeyState.IsKeyDown(Keys.Down) && _prevKeyState.IsKeyUp(Keys.Down))
+            if (_currentKeyState.IsKeyDown(Keys.Down))
             {
-                _box.Velocity += Util.ApplyImpulse(new Vector2(0, 4), _box.Location, _box.Mass);
+                _movementForce.Y = MathHelper.Clamp(_movementForce.Y + 5f, 0f, 1f);
+                return;
+            }
+            else
+            {
+                _movementForce.Y = 0;
+            }
+        }
+
+
+        private void ProcessImpulseKey(float time)
+        {
+            //Apply an impulse below the object
+            if (_currentKeyState.IsKeyDown(Keys.Space) && _prevKeyState.IsKeyUp(Keys.Space))
+            {
+                var newVelocity = Util.ApplyImpulse(new Vector2(0, 4), _box.Mass);
+
+                _box.Velocity += newVelocity;
             }
         }
 
@@ -218,6 +250,7 @@ namespace BouncingBall
             ApplyForce(_box, friction);
             ApplyForce(_box, _gravity);
             ApplyForce(_box, _wind);
+            ApplyForce(_box, _movementForce);
 
             //Apply the acceleration to the velocity
             _box.Velocity += _box.Acceleration;
