@@ -17,7 +17,7 @@ namespace BouncingBall
         private Vector2 _gravity;//The gravity in the world
         private Vector2 _wind;//The wind forces in the world
         private Rectangle _waterArea;
-        private float _densityOfWater = 10f;
+        private float _densityOfWater = 100f;
         private float _densityOfAir = 0.0f;
         private int _screenWidth = 800;
         private int _screenHeight = 480;
@@ -67,11 +67,13 @@ namespace BouncingBall
         /// </summary>
         protected override void Initialize()
         {
-            _gravity = new Vector2(0.0f, 0.1f);
+            IsMouseVisible = true;
+            _gravity = new Vector2(0.0f, 9.8f);
             _wind = new Vector2(0.0f, 0);
 
             base.Initialize();
         }
+
 
         /// <summary>
         /// LoadContent will be called once per game and is the place to load
@@ -87,13 +89,21 @@ namespace BouncingBall
                 Location = new Vector2(_graphics.PreferredBackBufferWidth / 2, _graphics.PreferredBackBufferHeight / 3),
                 Velocity = new Vector2(0, 0),
                 Acceleration = new Vector2(0, 0),
-                Mass = 1f,
+                /*A mass that is too low will make the object unstable and react to quick
+                    This is due to the huge ratio between the small amount of mass being moved
+                    by the velocity.
+                */
+                Mass = 10f,
                 HalfHeight = 25f,
                 Friction = 0.05f,
                 Drag = 0.01f,//Must be a positive number. If 0, then object does not move
-                SurfaceArea = 1f
+                SurfaceArea = 1f,
+                Restitution = 0
             };
+
+            var resultInPounds = Util.ToPounds(_box.Mass, _gravity.Y);
         }
+
 
         /// <summary>
         /// UnloadContent will be called once per game and is the place to unload
@@ -103,6 +113,7 @@ namespace BouncingBall
         {
         }
 
+
         /// <summary>
         /// Allows the game to run logic such as updating the world,
         /// checking for collisions, gathering input, and playing audio.
@@ -110,30 +121,21 @@ namespace BouncingBall
         /// <param name="gameTime">Provides a snapshot of timing values.</param>
         protected override void Update(GameTime gameTime)
         {
+            char letter = 'R';
+            
+            char result = letter.ToString().ToLower().ToCharArray()[0];
             _currentKeyState = Keyboard.GetState();
 
             UpdatePhysics();
 
-            //Apply an impulse to move the object to the right
-            if(_currentKeyState.IsKeyDown(Keys.Right) && _prevKeyState.IsKeyUp(Keys.Right))
-            {
-                var impulse = new Vector2(1, 0);
-
-                _box.Velocity += Util.CalcInverseOfMass(_box.Mass) * impulse;
-                _box.Velocity = Util.RemoveNan(_box.Velocity);
-                _box.Velocity = Util.RemoveInfinity(_box.Velocity);
-            }
-
-            if (_currentKeyState.IsKeyDown(Keys.Left))
-            {
-                _box.Angle -= 0.01f;
-            }
+            ProcessKeys();
 
             CheckEdges();
 
             _prevKeyState = _currentKeyState;
             base.Update(gameTime);
         }
+
 
         /// <summary>
         /// This is called when the game should draw itself.
@@ -154,6 +156,34 @@ namespace BouncingBall
 
             base.Draw(gameTime);
         }
+
+
+        private void ProcessKeys()
+        {
+            //Apply an impulse to move the object to the right
+            if (_currentKeyState.IsKeyDown(Keys.Left) && _prevKeyState.IsKeyUp(Keys.Left))
+            {
+                _box.Velocity += Util.ApplyImpulse(new Vector2(-4, 0), _box.Location, _box.Mass);
+            }
+
+            if (_currentKeyState.IsKeyDown(Keys.Right) && _prevKeyState.IsKeyUp(Keys.Right))
+            {
+                var newVelocityFar = Util.ApplyImpulse(new Vector2(4f, 0), new Vector2(_box.Location.X - 3000, _box.Location.Y), _box.Mass);
+                var newVelocityClose = Util.ApplyImpulse(new Vector2(4f, 0), _box.Location, _box.Mass);
+                //_box.Velocity += Util.ApplyImpulse(new Vector2(4f, 0), _box.Location, _box.Mass);
+            }
+
+            if (_currentKeyState.IsKeyDown(Keys.Up) && _prevKeyState.IsKeyUp(Keys.Up))
+            {
+                _box.Velocity += Util.ApplyImpulse(new Vector2(0, -4), _box.Location, _box.Mass);
+            }
+
+            if (_currentKeyState.IsKeyDown(Keys.Down) && _prevKeyState.IsKeyUp(Keys.Down))
+            {
+                _box.Velocity += Util.ApplyImpulse(new Vector2(0, 4), _box.Location, _box.Mass);
+            }
+        }
+
 
         private void UpdatePhysics()
         {
@@ -192,6 +222,9 @@ namespace BouncingBall
             //Apply the acceleration to the velocity
             _box.Velocity += _box.Acceleration;
 
+            //Apply a max to the components of the vector if any of the components are larger than the max
+            _box.Velocity = Util.Max(_box.Velocity, 15);
+
             //Update the location based on the velocity
             _box.Location += _box.Velocity;
 
@@ -199,6 +232,7 @@ namespace BouncingBall
             //will increase.  This only is needed in the current moment in time
             _box.Acceleration *= 0;
         }
+
 
         private void CheckEdges()
         {
@@ -236,6 +270,7 @@ namespace BouncingBall
                 _box.SetLocationY(_box.HalfHeight);
             }
         }
+
 
         private void ApplyForce(PhysObj obj, Vector2 force)
         {
