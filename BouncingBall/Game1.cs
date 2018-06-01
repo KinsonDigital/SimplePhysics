@@ -210,7 +210,7 @@ namespace BouncingBall
             //Apply an impulse below the object
             if (_currentKeyState.IsKeyDown(Keys.Space) && _prevKeyState.IsKeyUp(Keys.Space))
             {
-                var newVelocity = Util.ApplyImpulse2(_box, new Vector2(0, -40));
+                var newVelocity = Util.ApplyImpulse(_box, new Vector2(0, -40));
 
                 _box.Velocity += newVelocity;
             }
@@ -286,7 +286,9 @@ namespace BouncingBall
             //Check if touching bottom of screen
             if (_box.Location.Y > _screenHeight - _box.HalfHeight)
             {
+                // Impulse resolution should be done here instead of set location.
                 _box.SetLocationY(_screenHeight - _box.HalfHeight);
+
                 _box.SetVelocityY(_box.Velocity.Y * _box.Restitution);
 
                 if (_timer.IsRunning && _timerFinished == false)

@@ -33,16 +33,7 @@ namespace BouncingBall
         }
 
 
-        public static Vector2 ApplyImpulse(Vector2 impulse, float mass)
-        {
-            //https://gamedevelopment.tutsplus.com/tutorials/how-to-create-a-custom-2d-physics-engine-the-basics-and-impulse-resolution--gamedev-6331
-
-            var linearVelocity = (CalcInverseOfMass(mass) * impulse);
-
-            return linearVelocity;
-        }
-
-        public static Vector2 ApplyImpulse2(PhysObj obj, Vector2 impulse)
+        public static Vector2 ApplyImpulse(PhysObj obj, Vector2 impulse)
         {
             var result = CalcInverseOfMass(obj.Mass) * impulse;
 
