@@ -19,7 +19,7 @@ namespace BouncingBall
         private Vector2 _movementForce = Vector2.Zero;//The force of movement to control and object
         private Rectangle _waterArea;
         private float _densityOfWater = 100f;
-        private float _densityOfAir = 0.0f;
+        private float _densityOfAir = 30.0f;
         private int _screenWidth = 800;
         private int _screenHeight = 480;
         private bool _isInWater = false;
@@ -99,7 +99,7 @@ namespace BouncingBall
                 Friction = 0.05f,
                 Drag = 0.01f,//Must be a positive number. If 0, then object does not move
                 SurfaceArea = 1f,
-                Restitution = 0
+                Restitution = -1
             };
 
             var resultInPounds = Util.ToPounds(_box.Mass, _gravity.Y);
@@ -129,7 +129,7 @@ namespace BouncingBall
 
             UpdatePhysics();
 
-            //ProcessMovementKeys();
+            ProcessMovementKeys();
 
             ProcessImpulseKey((float)gameTime.ElapsedGameTime.TotalSeconds);
 
@@ -197,7 +197,7 @@ namespace BouncingBall
             {
                 _movementForce.Y = MathHelper.Clamp(_movementForce.Y + 5f, 0f, 1f);
                 return;
-            }
+            } 
             else
             {
                 _movementForce.Y = 0;
@@ -210,7 +210,7 @@ namespace BouncingBall
             //Apply an impulse below the object
             if (_currentKeyState.IsKeyDown(Keys.Space) && _prevKeyState.IsKeyUp(Keys.Space))
             {
-                var newVelocity = Util.ApplyImpulse(new Vector2(0, 4), _box.Mass);
+                var newVelocity = Util.ApplyImpulse2(_box, new Vector2(0, -40));
 
                 _box.Velocity += newVelocity;
             }
@@ -286,8 +286,8 @@ namespace BouncingBall
             //Check if touching bottom of screen
             if (_box.Location.Y > _screenHeight - _box.HalfHeight)
             {
-                _box.SetVelocityY(_box.Velocity.Y * _box.Restitution);
                 _box.SetLocationY(_screenHeight - _box.HalfHeight);
+                _box.SetVelocityY(_box.Velocity.Y * _box.Restitution);
 
                 if (_timer.IsRunning && _timerFinished == false)
                 {
