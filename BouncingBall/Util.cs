@@ -43,6 +43,45 @@ namespace BouncingBall
         }
 
 
+        public static void CalcAngularStuff(PhysObj obj)
+        {
+            //var centerOfMass = new Vector2(obj.Location.X + obj.HalfWidth, obj.Location.Y - obj.HalfHeight);
+            //var applicationPoint = obj.Location; //Top left corner
+            //var momentArm = applicationPoint - centerOfMass;
+
+            //var myForce = new Vector2(2, 2);// Random chosen values
+            //var parallelComponent = momentArm * (CalcDotProduct(myForce, momentArm) / CalcDotProduct(momentArm, momentArm));
+            //var angularForce = myForce - parallelComponent;
+
+            //var torque = angularForce * momentArm.Length();
+
+            //return angularForce * pointOfApplication.Length();
+        }
+
+        public static float Cross(Vector2 a, Vector2 b)
+        {
+            return a.X * b.Y - a.Y * b.X;
+        }
+
+
+        public static Vector2 Cross(Vector2 a, float scalar)
+        {
+            return new Vector2(scalar * a.Y, -scalar * a.X);
+        }
+
+
+        public static Vector2 Cross(float scalar, Vector2 a)
+        {
+            return new Vector2(-scalar * a.Y, scalar * a.X);
+        }
+
+
+        public static float CalcDotProduct(Vector2 vector1, Vector2 vector2)
+        {
+            return (vector1.X * vector2.X) + (vector1.Y * vector2.Y);
+        }
+
+
         public static Vector2 Max(Vector2 v, float max)
         {
             v.X = v.X > max ? max : v.X;
