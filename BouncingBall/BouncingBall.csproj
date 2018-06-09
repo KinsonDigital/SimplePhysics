@@ -43,7 +43,9 @@
   <ItemGroup>
     <Compile Include="ExtensionMethods.cs" />
     <Compile Include="Game1.cs" />
+    <Compile Include="Line.cs" />
     <Compile Include="PhysObj.cs" />
+    <Compile Include="Polygon.cs" />
     <Compile Include="Primitives2D.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

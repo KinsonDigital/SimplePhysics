@@ -85,9 +85,19 @@ namespace BouncingBall
             // Create a new SpriteBatch, which can be used to draw textures.
             _spriteBatch = new SpriteBatch(GraphicsDevice);
 
-            _box = new PhysObj(Content.Load<Texture2D>(@"Graphics\WhiteBox"))
+            var vertices = new Vector2[]
             {
-                Location = new Vector2(_graphics.PreferredBackBufferWidth / 2, _graphics.PreferredBackBufferHeight / 3),
+                new Vector2(-25, -25),
+                new Vector2(25, -25),
+                new Vector2(25, 25),
+                new Vector2(-25, 25),
+            };
+
+
+            var position = new Vector2(_graphics.PreferredBackBufferWidth / 2, _graphics.PreferredBackBufferHeight / 3);
+
+            _box = new PhysObj(Content.Load<Texture2D>(@"Graphics\WhiteBox"), vertices, position)
+            {
                 Velocity = new Vector2(0, 0),
                 Acceleration = new Vector2(0, 0),
                 /*A mass that is too low will make the object unstable and react to quick
@@ -95,7 +105,6 @@ namespace BouncingBall
                     by the velocity.
                 */
                 Mass = 10f,
-                HalfHeight = 25f,
                 Friction = 0.05f,
                 Drag = 0.01f,//Must be a positive number. If 0, then object does not move
                 SurfaceArea = 1f,
@@ -123,11 +132,11 @@ namespace BouncingBall
         protected override void Update(GameTime gameTime)
         {
             char letter = 'R';
-            
+
             char result = letter.ToString().ToLower().ToCharArray()[0];
             _currentKeyState = Keyboard.GetState();
 
-            UpdatePhysics();
+            UpdatePhysics(gameTime);
 
             ProcessMovementKeys();
 
@@ -163,6 +172,15 @@ namespace BouncingBall
 
         private void ProcessMovementKeys()
         {
+            if (_currentKeyState.IsKeyDown(Keys.D))
+            {
+                _box.Torque = -0.1f;
+            }
+            else
+            {
+                _box.Torque = 0;
+            }
+
             if (_currentKeyState.IsKeyDown(Keys.Left))
             {
                 _movementForce.X = MathHelper.Clamp(_movementForce.X - 5f, -1f, 0f);
@@ -197,7 +215,7 @@ namespace BouncingBall
             {
                 _movementForce.Y = MathHelper.Clamp(_movementForce.Y + 5f, 0f, 1f);
                 return;
-            } 
+            }
             else
             {
                 _movementForce.Y = 0;
@@ -217,7 +235,15 @@ namespace BouncingBall
         }
 
 
-        private void UpdatePhysics()
+        private void UpdatePhysics(GameTime gameTime)
+        {
+            UpdateLinearPhysics(gameTime);
+
+            UpdateAngularPhysics(gameTime);
+        }
+
+
+        private void UpdateLinearPhysics(GameTime gameTime)
         {
             if (!_timer.IsRunning && _timerFinished == false)
                 _timer.Start();
@@ -241,11 +267,10 @@ namespace BouncingBall
             velocityUnitVector = velocityUnitVector.RemoveAnyNaN();
 
             float speed = _box.Velocity.Length();
-            var dragForce = _box.Velocity;
 
-            dragForce = -0.5f * density * (_box.Velocity.Length() * _box.Velocity.Length()) * _box.SurfaceArea * _box.Drag * velocityUnitVector;
+            var dragForce = -0.5f * density * (_box.Velocity.Length() * _box.Velocity.Length()) * _box.SurfaceArea * _box.Drag * velocityUnitVector;
 
-            //Apply all of the forces
+            //Apply all of the forces. This updates the acceleration of the object.
             ApplyForce(_box, dragForce);
             ApplyForce(_box, friction);
             ApplyForce(_box, _gravity);
@@ -264,6 +289,11 @@ namespace BouncingBall
             //Reset the acceleration.  If you do not do this, every frame the acceleration
             //will increase.  This only is needed in the current moment in time
             _box.Acceleration *= 0;
+        }
+
+        private void UpdateAngularPhysics(GameTime gameTime)
+        {
+            
         }
 
 
