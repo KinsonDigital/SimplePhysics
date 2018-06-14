@@ -69,7 +69,6 @@ namespace BouncingBall
             return new Vector2(scalar * a.Y, -scalar * a.X);
         }
 
-
         public static Vector2 Cross(float scalar, Vector2 a)
         {
             return new Vector2(-scalar * a.Y, scalar * a.X);

@@ -10,30 +10,35 @@ namespace BouncingBall
 {
     public class PhysObj
     {
-        private Texture2D _texture;
-
-
         #region Constructors
-        public PhysObj(Texture2D texture)
+        public PhysObj(float radius)
         {
-            _texture = texture;
+            Radius = radius;
         }
         #endregion
 
 
         #region Props
+        public float Radius { get; set; }
+
         public float Mass { get; set; } = 1f;
 
-        public float HalfHeight { get; set; }
+        public float InvMass => Mass != 0.0f ? 1.0f / Mass : 0.0f;
+
+        public float Inertia { get; set; }
+
+        public float InvInertia => Inertia != 0.0f ? 1.0f / Inertia : 0.0f;
 
         /// <summary>
         /// The friction of gas/fluid on the object.  Keep positive to properly simulate.
         /// </summary>
         public float Friction { get; set; } = 0.02f;
 
-        public Vector2 Location { get; set; }
+        public Vector2 Position { get; set; }
 
         public Vector2 Velocity { get; set; }
+
+        public float AngularVelocity { get; set; }
 
         public Vector2 Acceleration { get; set; }
 
@@ -47,26 +52,24 @@ namespace BouncingBall
         public float Drag { get; set; } = 0.01f;
 
         public float Restitution { get; set; } = -1f;
+
+        public Color ObjectColor { get; set; } = Color.White;
         #endregion
 
 
         #region Public Methods
+        public void ApplyImpulse(Vector2 impulse, Vector2 contactVector)
+        {
+            Velocity = Velocity + (impulse * InvMass);
+            AngularVelocity += InvInertia * Util.Cross(contactVector, impulse);
+        }
+
         public void Render(SpriteBatch spriteBatch)
         {
-            var width = _texture.Width;
-            var height = _texture.Height;
-            var halfWidth = width / 2;
-            var halfHeight = height / 2;
-
-            var location = new Vector2(Location.X - halfWidth, Location.Y - halfHeight);
-            var origin = new Vector2(halfWidth, halfHeight);
-            var srcRect = new Rectangle(0, 0, width, height);
-
-            spriteBatch.Draw(_texture, Location, srcRect, Color.White, Angle, origin, 1f, SpriteEffects.None, 0f);
+            spriteBatch.FillCircle(Position, Radius, 100, ObjectColor);
 
             //Draw the origin of the texture
-            spriteBatch.FillCircle(Location, 5, 10, Color.Black);
-            //spriteBatch.FillCircle(Location, Radius, 50, Color.DarkRed);
+            spriteBatch.FillCircle(Position, 5, 10, Color.Black);
         }
 
         public void SetVelocityX(float value)
@@ -83,13 +86,13 @@ namespace BouncingBall
 
         public void SetLocationX(float value)
         {
-            Location = new Vector2(value, Location.Y);
+            Position = new Vector2(value, Position.Y);
         }
 
 
         public void SetLocationY(float value)
         {
-            Location = new Vector2(Location.X, value);
+            Position = new Vector2(Position.X, value);
         }
         #endregion
     }

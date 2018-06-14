@@ -1,6 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using System;
 using System.Diagnostics;
 
 namespace BouncingBall
@@ -18,14 +19,19 @@ namespace BouncingBall
         private Vector2 _wind;//The wind forces in the world
         private Vector2 _movementForce = Vector2.Zero;//The force of movement to control and object
         private Rectangle _waterArea;
-        private float _densityOfWater = 100f;
+        private float _densityOfWater = 0f;
         private float _densityOfAir = 30.0f;
         private int _screenWidth = 800;
         private int _screenHeight = 480;
         private bool _isInWater = false;
-        private PhysObj _box;
+        private PhysObj _ballA;
+        private PhysObj _ballB;
         private Stopwatch _timer = new Stopwatch();
         private bool _timerFinished = false;
+        private Vector2 normal = Vector2.Zero;
+        private float e; //Average restitution
+        private float sf;//Static friction
+        private float df;//Dynamic friction
 
         /*Calculations:
          * Legend:
@@ -69,7 +75,7 @@ namespace BouncingBall
         protected override void Initialize()
         {
             IsMouseVisible = true;
-            _gravity = new Vector2(0.0f, 4.0f);
+            _gravity = new Vector2(0.0f, 0.2f);
             _wind = new Vector2(0.0f, 0);
 
             base.Initialize();
@@ -85,9 +91,9 @@ namespace BouncingBall
             // Create a new SpriteBatch, which can be used to draw textures.
             _spriteBatch = new SpriteBatch(GraphicsDevice);
 
-            _box = new PhysObj(Content.Load<Texture2D>(@"Graphics\WhiteBox"))
+            _ballA = new PhysObj(25)
             {
-                Location = new Vector2(_graphics.PreferredBackBufferWidth / 2, _graphics.PreferredBackBufferHeight / 3),
+                Position = new Vector2(_graphics.PreferredBackBufferWidth / 2, _graphics.PreferredBackBufferHeight / 3),
                 Velocity = new Vector2(0, 0),
                 Acceleration = new Vector2(0, 0),
                 /*A mass that is too low will make the object unstable and react to quick
@@ -95,14 +101,33 @@ namespace BouncingBall
                     by the velocity.
                 */
                 Mass = 10f,
-                HalfHeight = 25f,
                 Friction = 0.05f,
                 Drag = 0.01f,//Must be a positive number. If 0, then object does not move
                 SurfaceArea = 1f,
-                Restitution = -1
+                Restitution = -1,
+                ObjectColor = Color.White
             };
 
-            var resultInPounds = Util.ToPounds(_box.Mass, _gravity.Y);
+
+            _ballB = new PhysObj(40)
+            {
+                Position = new Vector2(_graphics.PreferredBackBufferWidth / 2, (_graphics.PreferredBackBufferHeight / 3) * 2),
+                Velocity = new Vector2(0, 0),
+                Acceleration = new Vector2(0, 0),
+                /*A mass that is too low will make the object unstable and react to quick
+                    This is due to the huge ratio between the small amount of mass being moved
+                    by the velocity.
+                */
+                Mass = 0f,
+                Friction = 0.05f,
+                Drag = 0.01f,//Must be a positive number. If 0, then object does not move
+                SurfaceArea = 1f,
+                Restitution = -1,
+                ObjectColor = Color.DarkSeaGreen
+            };
+
+
+            var resultInPounds = Util.ToPounds(_ballA.Mass, _gravity.Y);
         }
 
 
@@ -133,7 +158,7 @@ namespace BouncingBall
 
             ProcessImpulseKey((float)gameTime.ElapsedGameTime.TotalSeconds);
 
-            CheckEdges();
+            ResolveCollisions();
 
             _prevKeyState = _currentKeyState;
             base.Update(gameTime);
@@ -150,10 +175,11 @@ namespace BouncingBall
 
             _spriteBatch.Begin();
 
-            _box.Render(_spriteBatch);
+            _ballB.Render(_spriteBatch);
+            _ballA.Render(_spriteBatch);
 
             //Render the water
-            _spriteBatch.FillRectangle(_waterArea, new Color(0, 0, 255, 80));
+            //_spriteBatch.FillRectangle(_waterArea, new Color(0, 0, 255, 80));
 
             _spriteBatch.End();
 
@@ -210,9 +236,9 @@ namespace BouncingBall
             //Apply an impulse below the object
             if (_currentKeyState.IsKeyDown(Keys.Space) && _prevKeyState.IsKeyUp(Keys.Space))
             {
-                var newVelocity = Util.ApplyImpulse(_box, new Vector2(0, -40));
+                var newVelocity = Util.ApplyImpulse(_ballA, new Vector2(0, -40));
 
-                _box.Velocity += newVelocity;
+                _ballA.Velocity += newVelocity;
             }
         }
 
@@ -226,86 +252,169 @@ namespace BouncingBall
             Window.Title = $"Touch Bottom Time: {_timer.Elapsed.TotalSeconds}";
 
             //Calculate the friction vector
-            var friction = Vector2.Normalize(_box.Velocity);
+            var friction = Vector2.Normalize(_ballA.Velocity);
             friction *= -1;
 
             //If the friction components are NaN, set to 0
             friction = friction.RemoveAnyNaN();
 
-            friction *= _box.Friction;
+            friction *= _ballA.Friction;
 
             var density = _isInWater ? _densityOfWater : _densityOfAir;
 
-            var velocityUnitVector = Vector2.Normalize(_box.Velocity);
+            var velocityUnitVector = Vector2.Normalize(_ballA.Velocity);
 
             velocityUnitVector = velocityUnitVector.RemoveAnyNaN();
 
-            float speed = _box.Velocity.Length();
-            var dragForce = _box.Velocity;
+            float speed = _ballA.Velocity.Length();
+            var dragForce = _ballA.Velocity;
 
-            dragForce = -0.5f * density * (_box.Velocity.Length() * _box.Velocity.Length()) * _box.SurfaceArea * _box.Drag * velocityUnitVector;
+            dragForce = -0.5f * density * (_ballA.Velocity.Length() * _ballA.Velocity.Length()) * _ballA.SurfaceArea * _ballA.Drag * velocityUnitVector;
 
             //Apply all of the forces
-            ApplyForce(_box, dragForce);
-            ApplyForce(_box, friction);
-            ApplyForce(_box, _gravity);
-            ApplyForce(_box, _wind);
-            ApplyForce(_box, _movementForce);
+            ApplyForce(_ballA, dragForce);
+            ApplyForce(_ballA, friction);
+            ApplyForce(_ballA, _gravity);
+            ApplyForce(_ballA, _wind);
+            ApplyForce(_ballA, _movementForce);
 
             //Apply the acceleration to the velocity
-            _box.Velocity += _box.Acceleration;
+            _ballA.Velocity += _ballA.Acceleration;
 
             //Apply a max to the components of the vector if any of the components are larger than the max
-            _box.Velocity = Util.Max(_box.Velocity, 15);
+            _ballA.Velocity = Util.Max(_ballA.Velocity, 15);
 
             //Update the location based on the velocity
-            _box.Location += _box.Velocity;
+            _ballA.Position += _ballA.Velocity;
 
             //Reset the acceleration.  If you do not do this, every frame the acceleration
             //will increase.  This only is needed in the current moment in time
-            _box.Acceleration *= 0;
+            _ballA.Acceleration *= 0;
         }
 
 
-        private void CheckEdges()
+        private void ResolveCollisions()
         {
-            if (_box.Location.X > _screenWidth - _box.HalfHeight)
+            var manifold = BuildManifold();
+
+            for (int i = 0; i < manifold.ContactCount; i++)
             {
-                _box.SetVelocityX(_box.Velocity.X * _box.Restitution);
-                _box.SetLocationX(_screenWidth - _box.HalfHeight);
-            }
-            else if(_box.Location.X < _box.HalfHeight)
-            {
-                _box.SetVelocityX(_box.Velocity.X * _box.Restitution);
-                _box.SetLocationX(_box.HalfHeight);
-            }
+                // Calculate radii from COM to contact
+                 Vector2 radiusA = manifold.ContactVectors[i] - _ballA.Position;
+                 Vector2 radiusB = manifold.ContactVectors[i] - _ballB.Position;
 
-            //If the object is in the water
-            _isInWater = _waterArea.Contains(new Point((int)_box.Location.X, (int)(_box.Location.Y + _box.HalfHeight)));
+                // Relative velocity
+                Vector2 relativeVelocity = _ballB.Velocity + Util.Cross(_ballB.AngularVelocity, radiusB) - _ballA.Velocity - Util.Cross(_ballA.AngularVelocity, radiusA);
 
-            //Check if touching bottom of screen
-            if (_box.Location.Y > _screenHeight - _box.HalfHeight)
-            {
-                // Impulse resolution should be done here instead of set location.
-                _box.SetLocationY(_screenHeight - _box.HalfHeight);
+                // Relative velocity along the normal
+                float contactVel = Dot(relativeVelocity, normal);// Normal is a unit vector
 
-                _box.SetVelocityY(_box.Velocity.Y * _box.Restitution);
-
-                if (_timer.IsRunning && _timerFinished == false)
+                // Do not resolve if velocities are separating
+                if (contactVel > 0)
                 {
-                    _timer.Stop();
-                    _timerFinished = true;
+                    return;
                 }
-            }
 
-            //Check if touching top of screen
-            if (_box.Location.Y < _box.HalfHeight)
-            {
-                _box.SetVelocityY(_box.Velocity.Y * _box.Restitution);
-                _box.SetLocationY(_box.HalfHeight);
+                float crossProdRadiusAndNormA = Util.Cross(radiusA, normal);
+                float crossProdRadiusAndNormB = Util.Cross(radiusB, normal);
+                float invMassSum = _ballA.InvMass + _ballB.InvMass + (crossProdRadiusAndNormA * crossProdRadiusAndNormA) * _ballA.InvInertia + (crossProdRadiusAndNormB * crossProdRadiusAndNormB) * _ballB.InvInertia;
+
+                // Calculate impulse scalar
+                float j = -(1.0f + e) * contactVel;
+                j /= invMassSum;
+                j /= manifold.ContactCount;
+
+                // Apply impulse
+                 Vector2 impulse = normal * j;
+                _ballA.ApplyImpulse(Neg(impulse), radiusA);//Negate impulse to force body A in opposite direction of body B
+                _ballB.ApplyImpulse(impulse, radiusB);
+
+                // Friction impulse
+                relativeVelocity = _ballB.Velocity + Util.Cross(_ballB.AngularVelocity, radiusB) - _ballA.Velocity - Util.Cross(_ballA.AngularVelocity, radiusA);
+
+                Vector2 tangent = new Vector2(relativeVelocity.X, relativeVelocity.Y);
+                tangent = (tangent + normal) * -Dot(relativeVelocity, normal);
+                tangent.Normalize();
+
+
+                // j tangent magnitude
+                float jt = -Dot(relativeVelocity, tangent);
+                jt /= invMassSum;
+                jt /= manifold.ContactCount;
+
+                // Don't apply tiny friction impulses
+                if ((jt - 0.0f) <= 0.0001f)
+                {
+                    return;
+                }
+
+                // Coulumb's law
+                 Vector2 tangentImpulse;
+                if (Math.Abs(jt) < j * sf)
+                {
+                    tangentImpulse = tangent * jt;
+                }
+                else
+                {
+                    tangentImpulse = (tangent * j) * -df;
+                }
+
+                // Apply friction impulse
+                _ballA.ApplyImpulse(Neg(tangentImpulse), radiusA);
+                _ballB.ApplyImpulse(tangentImpulse, radiusB);
             }
         }
 
+        private Manifold BuildManifold()
+        {
+            var result = new Manifold();
+
+            // Calculate translational vector, which is normal
+            var normal = _ballB.Position - _ballA.Position;
+
+            float distSqr = normal.X * normal.X + normal.Y * normal.Y;
+
+            float radius = _ballA.Radius + _ballB.Radius;
+
+            // Not in contact
+            if (distSqr >= radius * radius)
+            {
+                result.ContactCount = 0;
+                return result;
+            }
+
+            float distance = (float)Math.Sqrt(distSqr);
+
+            result.ContactCount = 1;
+
+            if (distance == 0.0f)
+            {
+                result.Penetration = _ballA.Radius;
+                result.Normal = new Vector2(1, 0);
+                result.ContactVectors.Add(_ballA.Position);
+            }
+            else
+            {
+                result.Penetration = radius - distance;
+                result.Normal = normal / distance;
+                result.ContactVectors.Add((normal / _ballA.Radius) + _ballA.Position);
+            }
+
+
+            return result;
+        }
+
+
+        public static float Dot(Vector2 a, Vector2 b)
+        {
+            return a.X * b.X + a.Y * b.Y;
+        }
+
+
+        public static Vector2 Neg(Vector2 v)
+        {
+            return new Vector2(v.X * -1, v.Y * -1);
+        }
 
         private void ApplyForce(PhysObj obj, Vector2 force)
         {
