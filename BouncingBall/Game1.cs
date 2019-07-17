@@ -29,6 +29,7 @@ namespace BouncingBall
         private Stopwatch _timer = new Stopwatch();
         private bool _timerFinished = false;
         private Vector2 normal = Vector2.Zero;
+        private Manifold _manifold;
         private float e; //Average restitution
         private float sf;//Static friction
         private float df;//Dynamic friction
@@ -47,6 +48,8 @@ namespace BouncingBall
 
         public Game1()
         {
+            //TargetElapsedTime = new TimeSpan(0, 0, 0, 0, 128);
+
             var monitorWidth = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width;
             var monitorHeight = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height;
 
@@ -157,6 +160,10 @@ namespace BouncingBall
             ProcessMovementKeys();
 
             ProcessImpulseKey((float)gameTime.ElapsedGameTime.TotalSeconds);
+
+            BuildManifold();
+
+            InitManifold(gameTime);
 
             ResolveCollisions();
 
@@ -295,13 +302,18 @@ namespace BouncingBall
 
         private void ResolveCollisions()
         {
-            var manifold = BuildManifold();
+            if(Math.Abs(_ballA.InvMass + _ballB.InvMass) - 0 <= 0.0001f)
+            {
+                _ballA.Velocity = Vector2.Zero;
+                _ballB.Velocity = Vector2.Zero;
+                return;
+            }
 
-            for (int i = 0; i < manifold.ContactCount; i++)
+            for (int i = 0; i < _manifold.ContactCount; i++)
             {
                 // Calculate radii from COM to contact
-                 Vector2 radiusA = manifold.ContactVectors[i] - _ballA.Position;
-                 Vector2 radiusB = manifold.ContactVectors[i] - _ballB.Position;
+                 Vector2 radiusA = _manifold.ContactVectors[i] - _ballA.Position;
+                 Vector2 radiusB = _manifold.ContactVectors[i] - _ballB.Position;
 
                 // Relative velocity
                 Vector2 relativeVelocity = _ballB.Velocity + Util.Cross(_ballB.AngularVelocity, radiusB) - _ballA.Velocity - Util.Cross(_ballA.AngularVelocity, radiusA);
@@ -322,7 +334,7 @@ namespace BouncingBall
                 // Calculate impulse scalar
                 float j = -(1.0f + e) * contactVel;
                 j /= invMassSum;
-                j /= manifold.ContactCount;
+                j /= _manifold.ContactCount;
 
                 // Apply impulse
                  Vector2 impulse = normal * j;
@@ -333,17 +345,19 @@ namespace BouncingBall
                 relativeVelocity = _ballB.Velocity + Util.Cross(_ballB.AngularVelocity, radiusB) - _ballA.Velocity - Util.Cross(_ballA.AngularVelocity, radiusA);
 
                 Vector2 tangent = new Vector2(relativeVelocity.X, relativeVelocity.Y);
-                tangent = (tangent + normal) * -Dot(relativeVelocity, normal);
+                tangent = tangent + (normal * -Dot(relativeVelocity, normal));
                 tangent.Normalize();
 
+                tangent.X = float.IsNaN(tangent.X) ? 0.0f : tangent.X;
+                tangent.Y = float.IsNaN(tangent.Y) ? 0.0f : tangent.Y;
 
                 // j tangent magnitude
                 float jt = -Dot(relativeVelocity, tangent);
                 jt /= invMassSum;
-                jt /= manifold.ContactCount;
+                jt /= _manifold.ContactCount;
 
                 // Don't apply tiny friction impulses
-                if ((jt - 0.0f) <= 0.0001f)
+                if (Math.Abs((jt - 0.0f)) <= 0.0001f)
                 {
                     return;
                 }
@@ -359,15 +373,18 @@ namespace BouncingBall
                     tangentImpulse = (tangent * j) * -df;
                 }
 
+                var result = Neg(tangentImpulse);
+
                 // Apply friction impulse
                 _ballA.ApplyImpulse(Neg(tangentImpulse), radiusA);
                 _ballB.ApplyImpulse(tangentImpulse, radiusB);
             }
         }
 
-        private Manifold BuildManifold()
+
+        private void BuildManifold()
         {
-            var result = new Manifold();
+            _manifold = new Manifold();
 
             // Calculate translational vector, which is normal
             var normal = _ballB.Position - _ballA.Position;
@@ -379,29 +396,54 @@ namespace BouncingBall
             // Not in contact
             if (distSqr >= radius * radius)
             {
-                result.ContactCount = 0;
-                return result;
+                _manifold.ContactCount = 0;
+                return;
             }
 
             float distance = (float)Math.Sqrt(distSqr);
 
-            result.ContactCount = 1;
+            _manifold.ContactCount = 1;
 
             if (distance == 0.0f)
             {
-                result.Penetration = _ballA.Radius;
-                result.Normal = new Vector2(1, 0);
-                result.ContactVectors.Add(_ballA.Position);
+                _manifold.Penetration = _ballA.Radius;
+                _manifold.Normal = new Vector2(1, 0);
+                _manifold.ContactVectors.Add(_ballA.Position);
             }
             else
             {
-                result.Penetration = radius - distance;
-                result.Normal = normal / distance;
-                result.ContactVectors.Add((normal / _ballA.Radius) + _ballA.Position);
+                _manifold.Penetration = radius - distance;
+                _manifold.Normal = normal / distance;
+                _manifold.ContactVectors.Add((_manifold.Normal * _ballA.Radius) + _ballA.Position);
             }
+        }
 
 
-            return result;
+        private void InitManifold(GameTime gameTime)
+        {
+            // Calculate average restitution
+            e = Math.Min(_ballA.Restitution, _ballB.Restitution);
+
+            //Calculate static and dynamic friction
+            sf = (float)Math.Sqrt(_ballA.StaticFriction * _ballA.StaticFriction + _ballB.StaticFriction * _ballB.StaticFriction);
+            df = (float)Math.Sqrt(_ballA.DynamicFriction * _ballA.DynamicFriction + _ballB.DynamicFriction * _ballB.DynamicFriction);
+
+            for (int i = 0; i < _manifold.ContactCount; ++i)
+            {
+                // Calculate radii from COM to contact
+                Vector2 ra = _manifold.ContactVectors[i] - _ballA.Position;
+                Vector2 rb = _manifold.ContactVectors[i] - _ballB.Position;
+
+                Vector2 rv = _ballB.Velocity + Util.Cross(_ballB.AngularVelocity, rb) - _ballA.Velocity - Util.Cross(_ballA.AngularVelocity, ra);
+
+                // Determine if we should perform a resting collision or not
+                // The idea is if the only thing moving this object is gravity,
+                // then the collision should be performed without any restitution
+                if (rv.LengthSquared() < CalculateResting(gameTime))
+                {
+                    e = 0.0f;
+                }
+            }
         }
 
 
@@ -415,6 +457,15 @@ namespace BouncingBall
         {
             return new Vector2(v.X * -1, v.Y * -1);
         }
+
+
+        public float CalculateResting(GameTime gameTime)
+        {
+            var EPSILON = 0.0001f;
+
+            return (_gravity * (float)gameTime.ElapsedGameTime.TotalSeconds).LengthSquared() + EPSILON;
+        }
+
 
         private void ApplyForce(PhysObj obj, Vector2 force)
         {

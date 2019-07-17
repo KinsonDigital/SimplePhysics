@@ -29,6 +29,10 @@ namespace BouncingBall
 
         public float InvInertia => Inertia != 0.0f ? 1.0f / Inertia : 0.0f;
 
+        public float StaticFriction { get; set; } = 0.5f;
+
+        public float DynamicFriction { get; set; } = 0.3f;
+
         /// <summary>
         /// The friction of gas/fluid on the object.  Keep positive to properly simulate.
         /// </summary>
